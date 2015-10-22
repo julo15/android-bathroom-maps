@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../...iml" filepath="$PROJECT_DIR$/../...iml" />
+      <module fileurl="file://$PROJECT_DIR$/BathroomMaps.iml" filepath="$PROJECT_DIR$/BathroomMaps.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../deuter/Deuter.iml" filepath="$PROJECT_DIR$/../deuter/Deuter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../deuter/deuter/deuter.iml" filepath="$PROJECT_DIR$/../deuter/deuter/deuter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../julianlo.iml" filepath="$PROJECT_DIR$/../../../julianlo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../julianlo.iml" filepath="$PROJECT_DIR$/../../../julianlo.iml" />
+    </modules>
+  </component>
+</project>
