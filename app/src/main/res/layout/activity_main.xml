@@ -30,6 +30,18 @@
         android:clickable="true"
         android:src="@drawable/ic_add_white_24dp"
         app:layout_anchor="@id/toolbar_parent"
+        app:layout_anchorGravity="bottom|left|end"
+        />
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/locate_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:clickable="true"
+        android:src="@drawable/ic_my_location_black_24dp"
+        app:backgroundTint="#FFFFFF"
+        app:layout_anchor="@id/toolbar_parent"
         app:layout_anchorGravity="bottom|right|end"
         />
 </android.support.design.widget.CoordinatorLayout>

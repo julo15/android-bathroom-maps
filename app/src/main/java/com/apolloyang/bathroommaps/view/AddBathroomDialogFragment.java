@@ -1,4 +1,4 @@
-package com.apolloyang.bathroommaps;
+package com.apolloyang.bathroommaps.view;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -11,6 +11,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.apolloyang.bathroommaps.R;
 import com.apolloyang.bathroommaps.model.BathroomMapsAPI;
 import com.google.android.gms.maps.model.LatLng;
 
@@ -19,11 +20,25 @@ import com.google.android.gms.maps.model.LatLng;
  */
 public class AddBathroomDialogFragment extends DialogFragment {
 
+    private Mode mMode;
+    private String mId;
     private LatLng mPosition;
     private View mRootView;
 
-    public AddBathroomDialogFragment(LatLng position) {
+    public enum Mode {
+        ADDBATHROOM,
+        ADDREVIEW,
+    }
+
+    public AddBathroomDialogFragment(Mode mode, LatLng position, String id) {
         mPosition = position;
+        mMode = mode;
+        mId = id;
+    }
+
+    public void setMode() {
+        mRootView.findViewById(R.id.name_layout).setVisibility(mMode == Mode.ADDBATHROOM ? View.VISIBLE : View.GONE);
+        mRootView.findViewById(R.id.category_layout).setVisibility(mMode == Mode.ADDBATHROOM ? View.VISIBLE : View.GONE);
     }
 
     @Override
@@ -31,6 +46,7 @@ public class AddBathroomDialogFragment extends DialogFragment {
         final DialogFragment dialogFragment = this;
         final Context context = getActivity();
         mRootView = getActivity().getLayoutInflater().inflate(R.layout.fragment_addbathroom, null);
+        setMode();
 
         return new AlertDialog.Builder(getActivity())
                 .setView(mRootView)
@@ -39,10 +55,23 @@ public class AddBathroomDialogFragment extends DialogFragment {
                     public void onClick(DialogInterface dialog, int which) {
                         switch (which) {
                             case DialogInterface.BUTTON_POSITIVE: {
-                                AddBathroomTask task = new AddBathroomTask(getActivity(), mPosition,
-                                        ((EditText)mRootView.findViewById(R.id.name_edittext)).getText().toString(),
-                                        ((EditText)mRootView.findViewById(R.id.category_edittext)).getText().toString());
-                                task.execute();
+                                switch (mMode) {
+                                    case ADDBATHROOM: {
+                                        AddBathroomTask task = new AddBathroomTask(getActivity(), mPosition,
+                                                ((EditText)mRootView.findViewById(R.id.name_edittext)).getText().toString(),
+                                                ((EditText)mRootView.findViewById(R.id.category_edittext)).getText().toString());
+                                        task.execute();
+                                        break;
+                                    }
+
+                                    case ADDREVIEW: {
+                                        AddReviewTask task = new AddReviewTask(getActivity(), mId,
+                                                Integer.parseInt(((EditText)mRootView.findViewById(R.id.rating_edittext)).getText().toString()),
+                                                ((EditText)mRootView.findViewById(R.id.review_edittext)).getText().toString());
+                                        task.execute();
+                                        break;
+                                    }
+                                }
                                 break;
                             }
                         }
@@ -79,6 +108,41 @@ public class AddBathroomDialogFragment extends DialogFragment {
             BathroomMapsAPI api = new BathroomMapsAPI();
             try {
                 return api.addBathroom(mPosition, mName, mCategory);
+            } catch (Exception e) {
+                System.err.println(e);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            Toast toast = Toast.makeText(mContext, result, Toast.LENGTH_LONG);
+            toast.show();
+        }
+    }
+
+    // Parameters
+    // Progress
+    // Result
+    private static class AddReviewTask extends AsyncTask<Void, Void, String> {
+
+        private Context mContext;
+        private String mId;
+        private int mRating;
+        private String mText;
+
+        public AddReviewTask(Context context, String id, int rating, String text) {
+            mContext = context;
+            mId = id;
+            mRating = rating;
+            mText = text;
+        }
+
+        @Override
+        protected String doInBackground(Void... params) {
+            BathroomMapsAPI api = new BathroomMapsAPI();
+            try {
+                return api.addReview(mId, mRating, mText);
             } catch (Exception e) {
                 System.err.println(e);
             }
