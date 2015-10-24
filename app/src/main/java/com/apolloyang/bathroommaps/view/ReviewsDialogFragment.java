@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.RatingBar;
 import android.widget.TextView;
 
 import com.apolloyang.bathroommaps.R;
@@ -26,9 +27,11 @@ public class ReviewsDialogFragment extends DialogFragment {
 
     private View mRootView;
     private BathroomMapsAPI.Bathroom mBathroom;
+    private AddBathroomDialogFragment.Listener mListener;
 
-    public ReviewsDialogFragment(BathroomMapsAPI.Bathroom bathroom) {
+    public ReviewsDialogFragment(BathroomMapsAPI.Bathroom bathroom, AddBathroomDialogFragment.Listener listener) {
         mBathroom = bathroom;
+        mListener = listener;
     }
 
     @Override
@@ -43,7 +46,7 @@ public class ReviewsDialogFragment extends DialogFragment {
         mRootView.findViewById(R.id.addreview_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AddBathroomDialogFragment reviewDialogFragment = new AddBathroomDialogFragment(AddBathroomDialogFragment.Mode.ADDREVIEW, null, mBathroom.getId());
+                AddBathroomDialogFragment reviewDialogFragment = new AddBathroomDialogFragment(AddBathroomDialogFragment.Mode.ADDREVIEW, null, mBathroom.getId(), mListener);
                 reviewDialogFragment.show(dialogFragment.getFragmentManager(), "addbathroom" /* TODO: Fix */);
                 dialogFragment.dismiss();
             }
@@ -72,11 +75,11 @@ public class ReviewsDialogFragment extends DialogFragment {
         public View getView(int position, View convertView, ViewGroup parent) {
             LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             View rowView = inflater.inflate(R.layout.row_review, parent, false);
-            TextView ratingTextView = (TextView)rowView.findViewById(R.id.rating_textview);
+            RatingBar ratingBar = (RatingBar)rowView.findViewById(R.id.rating_ratingbar);
             TextView reviewTextView = (TextView)rowView.findViewById(R.id.review_textview);
 
             BathroomMapsAPI.Review review = getItem(position);
-            ratingTextView.setText(review.getRating() + " stars");
+            ratingBar.setRating(review.getRating());
             reviewTextView.setText(review.getText());
 
             return rowView;

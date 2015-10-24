@@ -17,6 +17,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -52,21 +53,13 @@ public class BathroomMapsAPI {
         private Marker mMarker;
 
         public Bathroom(JSONObject json) {
-            mJson = json;
+            setJson(json);
         }
 
         // region Methods
 
-        public Marker addMarker(GoogleMap map) {
-            mMarker = map.addMarker(new MarkerOptions()
-                    .position(getLocation())
-                    .title(getName())
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
-            return mMarker;
-        }
-
-        public void clearMarker() {
-            mMarker.remove();
+        public void setJson(JSONObject json) {
+            mJson = json;
         }
 
         // endregion
@@ -127,7 +120,7 @@ public class BathroomMapsAPI {
         return bathrooms;
     }
 
-    public String addBathroom(LatLng position, String name, String category) throws Exception {
+    public Bathroom addBathroom(LatLng position, String name, String category) throws Exception {
         String urlString = String.format("%s/addbathroom?admin&lat=%f&lon=%f&name=%s&cat=%s",
                 baseUrlString,
                 position.latitude,
@@ -135,27 +128,37 @@ public class BathroomMapsAPI {
                 URLEncoder.encode(name, "utf-8"),
                 URLEncoder.encode(category, "utf-8"));
 
-        String response = CharStreams.toString(new InputStreamReader((new URL(urlString)).openConnection().getInputStream()));
-        return response;
+        JSONObject object = JSONHelper.getJSONObjectFromInputStream((new URL(urlString)).openConnection().getInputStream());
+        JSONObject result = object.getJSONObject("result");
+        if (result.getInt("ok") == 1) {
+            return new Bathroom(object.getJSONObject("bathroom"));
+        }
+
+        throw new Exception(result.getString("text"));
     }
 
-    public String removeBathroom(String id) throws Exception {
+    public boolean removeBathroom(String id) throws Exception {
         String urlString = String.format("%s/removebathroom?id=%s",
                 baseUrlString,
                 id);
-
-        String response = CharStreams.toString(new InputStreamReader((new URL(urlString)).openConnection().getInputStream()));
-        return response;
+        JSONObject object = JSONHelper.getJSONObjectFromInputStream((new URL(urlString)).openConnection().getInputStream());
+        JSONObject result = object.getJSONObject("result");
+        return (result.getInt("ok") == 1);
     }
 
-    public String addReview(String id, int rating, String text) throws Exception {
+    public Bathroom addReview(String id, int rating, String text) throws Exception {
         String urlString = String.format("%s/addreview?id=%s&rating=%d&text=%s",
                 baseUrlString,
                 id,
                 rating,
                 URLEncoder.encode(text, "utf-8"));
 
-        String response = CharStreams.toString(new InputStreamReader((new URL(urlString)).openConnection().getInputStream()));
-        return response;
+        JSONObject object = JSONHelper.getJSONObjectFromInputStream((new URL(urlString)).openConnection().getInputStream());
+        JSONObject result = object.getJSONObject("result");
+        if (result.getInt("ok") == 1) {
+            return new Bathroom(object.getJSONObject("bathroom"));
+        }
+
+        throw new Exception(result.getString("text"));
     }
 }

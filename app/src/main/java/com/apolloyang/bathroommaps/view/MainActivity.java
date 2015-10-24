@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,7 +41,8 @@ import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
-    implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+    implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
+        AddBathroomDialogFragment.Listener {
 
     private static final String DIALOG_ADDBATHROOM = "addbathroom";
     private static final String DIALOG_REVIEWS = "reviews";
@@ -55,7 +57,7 @@ public class MainActivity extends AppCompatActivity
     private TextView mRatingTextView;
     private View mAddButton;
     private Marker mAddMarker;
-    private HashMap<Marker, BathroomMapsAPI.Bathroom> mMarkers = new HashMap<Marker, BathroomMapsAPI.Bathroom>();
+    private BathroomMarkerManager mManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,14 +70,18 @@ public class MainActivity extends AppCompatActivity
 
         mWalkingTimeTextView = (TextView)findViewById(R.id.time_textview);
 
-        mRatingTextView = (TextView)findViewById(R.id.rating_textview);
-        mRatingTextView.setOnClickListener(new View.OnClickListener() {
+        View.OnClickListener onClickListener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ReviewsDialogFragment dialogFragment = new ReviewsDialogFragment(mMarkers.get(mCurrentMarker));
+                ReviewsDialogFragment dialogFragment = new ReviewsDialogFragment(mManager.getBathroom(mCurrentMarker), MainActivity.this);
                 dialogFragment.show(getSupportFragmentManager(), DIALOG_REVIEWS);
             }
-        });
+        };
+
+        mRatingTextView = (TextView)findViewById(R.id.rating_textview);
+        mRatingTextView.setOnClickListener(onClickListener);
+
+        findViewById(R.id.rating_ratingbar).setOnClickListener(onClickListener);
 
         mWalkButton = findViewById(R.id.walk_button);
         mWalkButton.setOnClickListener(new View.OnClickListener() {
@@ -99,7 +105,7 @@ public class MainActivity extends AppCompatActivity
         findViewById(R.id.locate_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ensureMapCentered(null);
+                ensureMapCentered(null, true /* resetZoom */);
                 animateToDefaultView();
             }
         });
@@ -111,9 +117,6 @@ public class MainActivity extends AppCompatActivity
                 animateToolbar(false);
 
                 if (mAddMarker != null) {
-                    //mMarkers.get(mAddMarker).clearMarker();
-                    //mMarkers.remove(mAddMarker);
-                    //mAddMarker = null;
                     mAddMarker.remove();
                 }
 
@@ -184,29 +187,22 @@ public class MainActivity extends AppCompatActivity
             public boolean onMarkerClick(Marker marker) {
 
                 if (mCurrentMarker != null) {
-                    mCurrentMarker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+                    mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_18dp));
                 }
                 mCurrentMarker = marker;
                 if ((mAddMarker != null) && (mCurrentMarker.getId().equals(mAddMarker.getId()))) {
-                    AddBathroomDialogFragment dialogFragment = new AddBathroomDialogFragment(AddBathroomDialogFragment.Mode.ADDBATHROOM, marker.getPosition(), null);
+                    AddBathroomDialogFragment dialogFragment = new AddBathroomDialogFragment(AddBathroomDialogFragment.Mode.ADDBATHROOM, mAddMarker.getPosition(), null, MainActivity.this);
                     dialogFragment.show(getSupportFragmentManager(), DIALOG_ADDBATHROOM);
+                    mAddMarker.remove();
+                    mAddMarker = null;
+                    mCurrentMarker = null;
                 } else {
-                    mCurrentMarker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
-                    BathroomMapsAPI.Bathroom bathroom = mMarkers.get(marker);
-                    ((TextView)findViewById(R.id.name_textview)).setText(bathroom.getName());
-
-                    int count = bathroom.getRatingCount();
-
-                    String text =
-                            (count > 0) ? String.format("%.1f stars (%d reviews)",
-                                    bathroom.getRatingAverage(),
-                                    bathroom.getRatingCount()) : "No reviews";
-                    SpannableString span = new SpannableString(text);
-                    span.setSpan(new UnderlineSpan(), 0, span.length(), 0);
-                    mRatingTextView.setText(span);
+                    mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_24dp));
+                    BathroomMapsAPI.Bathroom bathroom = mManager.getBathroom(marker);
+                    setToolbarBathroom(bathroom);
 
                     animateToolbar(true);
-                    ensureMapCentered(marker.getPosition());
+                    ensureMapCentered(marker.getPosition(), false /* resetZoom */);
 
                     Location hereLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
                     if (hereLoc != null) {
@@ -226,7 +222,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onMapLongClick(LatLng latLng) {
                 if (mCurrentMarker != null) {
-                    final BathroomMapsAPI.Bathroom bathroom = mMarkers.get(mCurrentMarker);
+                    final BathroomMapsAPI.Bathroom bathroom = mManager.getBathroom(mCurrentMarker);
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle(mCurrentMarker.getTitle())
                             .setMessage("Remove this bathroom?")
@@ -255,6 +251,23 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        // Need this here for the marker to actually update
+        map.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+            @Override
+            public void onMarkerDragStart(Marker marker) {
+
+            }
+
+            @Override
+            public void onMarkerDrag(Marker marker) {
+
+            }
+
+            @Override
+            public void onMarkerDragEnd(Marker marker) {
+            }
+        });
+
         /*
         map.setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
             @Override
@@ -269,15 +282,45 @@ public class MainActivity extends AppCompatActivity
         });
         */
 
-        AddMarkersTask task = new AddMarkersTask(mGoogleApiClient, map, mMarkers);
+        mManager = new BathroomMarkerManager(mGoogleMap);
+        AddMarkersTask task = new AddMarkersTask(mGoogleApiClient, map, mManager);
         task.execute();
-        ensureMapCentered(null /* use current location */);
+        ensureMapCentered(null /* use current location */, true /* resetZoom */);
+    }
+
+    @Override
+    public void onBathroomAddedOrUpdated(BathroomMapsAPI.Bathroom bathroom, Exception exception) {
+        Toast toast = Toast.makeText(this, (exception == null) ? "Success!" : exception.toString(), Toast.LENGTH_LONG);
+        toast.show();
+        if (bathroom != null) {
+            mManager.addOrUpdate(bathroom);
+            mCurrentMarker = null;
+            setToolbarBathroom(bathroom);
+        }
+    }
+
+    private void setToolbarBathroom(BathroomMapsAPI.Bathroom bathroom) {
+        ((TextView) findViewById(R.id.name_textview)).setText(bathroom.getName());
+
+        int count = bathroom.getRatingCount();
+
+        RatingBar ratingBar = (RatingBar)findViewById(R.id.rating_ratingbar);
+        ratingBar.setVisibility((count > 0) ? View.VISIBLE : View.GONE);
+        ratingBar.setRating((float)bathroom.getRatingAverage());
+
+        String text =
+                (count > 0) ? String.format("(%d reviews)",
+                        bathroom.getRatingCount()) : "No reviews";
+        SpannableString span = new SpannableString(text);
+        span.setSpan(new UnderlineSpan(), 0, span.length(), 0);
+        mRatingTextView.setText(span);
     }
 
     private void animateToDefaultView() {
         animateToolbar(false);
         if (mCurrentMarker != null) {
-            mCurrentMarker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+            mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_18dp));
+            mCurrentMarker = null;
         }
     }
 
@@ -328,7 +371,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void ensureMapCentered(LatLng latLng) {
+    private void ensureMapCentered(LatLng latLng, boolean resetZoom) {
         // handle race between retrieving googlemap (onMapReady) and connecting to google api (onConnected)
         if (mGoogleApiConnected && (mGoogleMap != null)) {
 
@@ -341,10 +384,11 @@ public class MainActivity extends AppCompatActivity
             }
 
             if (latLng != null) {
-                mGoogleMap.animateCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.builder()
+
+                CameraPosition.Builder builder = CameraPosition.builder()
                         .target(latLng)
-                        .zoom(16)
-                        .build()), 200, null);
+                        .zoom(resetZoom ? 16 : mGoogleMap.getCameraPosition().zoom);
+                mGoogleMap.animateCamera(CameraUpdateFactory.newCameraPosition(builder.build()), 200, null);
             }
         }
     }
@@ -385,12 +429,12 @@ public class MainActivity extends AppCompatActivity
 
         private GoogleApiClient mGoogleApiClient;
         private GoogleMap mMap;
-        private HashMap<Marker, BathroomMapsAPI.Bathroom> mMarkers;
+        private BathroomMarkerManager mManager;
 
-        public AddMarkersTask(GoogleApiClient googleApiClient, GoogleMap map, HashMap<Marker, BathroomMapsAPI.Bathroom> markers) {
+        public AddMarkersTask(GoogleApiClient googleApiClient, GoogleMap map, BathroomMarkerManager manager) {
             mGoogleApiClient = googleApiClient;
             mMap = map;
-            mMarkers = markers;
+            mManager = manager;
         }
 
         @Override
@@ -410,9 +454,7 @@ public class MainActivity extends AppCompatActivity
         @Override
         protected void onPostExecute(List<BathroomMapsAPI.Bathroom> result) {
             if (result != null) {
-                for (BathroomMapsAPI.Bathroom bathroom : result) {
-                    mMarkers.put(bathroom.addMarker(mMap), bathroom);
-                }
+                mManager.init(result);
             }
         }
     }
@@ -448,7 +490,7 @@ public class MainActivity extends AppCompatActivity
     // Parameters
     // Progress
     // Result
-    private static class RemoveBathroomTask extends AsyncTask<Void, Void, String> {
+    private class RemoveBathroomTask extends AsyncTask<Void, Void, Boolean> {
 
         private Context mContext;
         private String mId;
@@ -459,20 +501,23 @@ public class MainActivity extends AppCompatActivity
         }
 
         @Override
-        protected String doInBackground(Void... params) {
+        protected Boolean doInBackground(Void... params) {
             BathroomMapsAPI api = new BathroomMapsAPI();
             try {
                 return api.removeBathroom(mId);
             } catch (Exception e) {
                 System.err.println(e);
             }
-            return null;
+            return false;
         }
 
         @Override
-        protected void onPostExecute(String result) {
-            Toast toast = Toast.makeText(mContext, result, Toast.LENGTH_LONG);
+        protected void onPostExecute(Boolean result) {
+            Toast toast = Toast.makeText(mContext, result ? "Bathroom removed" : "Something went wrong", Toast.LENGTH_LONG);
             toast.show();
+
+            mManager.remove(mId);
+            mCurrentMarker = null;
         }
     }
 }
