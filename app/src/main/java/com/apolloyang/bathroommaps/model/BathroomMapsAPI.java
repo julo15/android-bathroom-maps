@@ -1,5 +1,10 @@
 package com.apolloyang.bathroommaps.model;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.support.v4.net.ConnectivityManagerCompat;
+
 import com.apolloyang.deuter.Web.JSONHelper;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -103,7 +108,45 @@ public class BathroomMapsAPI {
         // endregion
     }
 
+    // region Exceptions
+
+    public static class NoInternetException extends Exception {
+
+    }
+
+    // endregion
+
+    // region Helpers
+
+    private void checkIfConnectedToInternet() throws NoInternetException {
+        ConnectivityManager cm = (ConnectivityManager)mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        boolean isConnected = (activeNetwork != null) && activeNetwork.isConnectedOrConnecting();
+        if (!isConnected) {
+            throw new NoInternetException();
+        }
+    }
+
+    // endregion
+
+    private static BathroomMapsAPI sInstance;
+    private Context mContext;
+
+    public static void initialize(Context context) {
+        sInstance = new BathroomMapsAPI(context);
+    }
+
+    private BathroomMapsAPI(Context context) {
+        mContext = context;
+    }
+
+    public static BathroomMapsAPI getInstance() {
+        return sInstance;
+    }
+
     public List<Bathroom> getBathrooms(LatLng here) throws Exception {
+        checkIfConnectedToInternet();
+
         String urlString = String.format("%s/bathrooms?lat=%f&lon=%f",
                 baseUrlString,
                 here.latitude,
@@ -121,6 +164,8 @@ public class BathroomMapsAPI {
     }
 
     public Bathroom addBathroom(LatLng position, String name, String category) throws Exception {
+        checkIfConnectedToInternet();
+
         String urlString = String.format("%s/addbathroom?admin&lat=%f&lon=%f&name=%s&cat=%s",
                 baseUrlString,
                 position.latitude,
@@ -138,6 +183,8 @@ public class BathroomMapsAPI {
     }
 
     public boolean removeBathroom(String id) throws Exception {
+        checkIfConnectedToInternet();
+
         String urlString = String.format("%s/removebathroom?id=%s",
                 baseUrlString,
                 id);
@@ -147,6 +194,8 @@ public class BathroomMapsAPI {
     }
 
     public Bathroom addReview(String id, int rating, String text) throws Exception {
+        checkIfConnectedToInternet();
+
         String urlString = String.format("%s/addreview?id=%s&rating=%d&text=%s",
                 baseUrlString,
                 id,

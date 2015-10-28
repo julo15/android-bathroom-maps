@@ -22,6 +22,10 @@ public class BathroomMarkerManager {
     private HashMap<String, BathroomMapsAPI.Bathroom> mStringBathroomHashMap = new HashMap<>();
     private HashMap<BathroomMapsAPI.Bathroom, Marker> mBathroomMarkerHashMap = new HashMap<>();
 
+    // Bathroom icons
+    public static final int POO_ICON = R.drawable.icon_poo_40x40_brown; // R.drawable.ic_wc_black_18dp, 24dp
+    public static final int POO_ICON_BIG = R.drawable.icon_poo_80x80_brown;
+
     public BathroomMarkerManager(GoogleMap map) {
         mGoogleMap = map;
     }
@@ -56,7 +60,7 @@ public class BathroomMarkerManager {
         Marker marker = mGoogleMap.addMarker(new MarkerOptions()
                         .position(bathroom.getLocation())
                         .title(bathroom.getName())
-                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_18dp)));
+                        .icon(BitmapDescriptorFactory.fromResource(BathroomMarkerManager.POO_ICON)));
                 mMarkerBathroomHashMap.put(marker, bathroom);
         mStringBathroomHashMap.put(bathroom.getId(), bathroom);
         mBathroomMarkerHashMap.put(bathroom, marker);

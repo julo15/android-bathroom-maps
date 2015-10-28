@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,6 +25,7 @@ import android.widget.Toast;
 import com.apolloyang.bathroommaps.R;
 import com.apolloyang.bathroommaps.model.BathroomMapsAPI;
 import com.apolloyang.bathroommaps.model.GoogleDirectionsAPI;
+import com.apolloyang.bathroommaps.model.Telemetry;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
@@ -37,6 +39,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.net.ConnectException;
 import java.util.HashMap;
 import java.util.List;
 
@@ -50,6 +53,8 @@ public class MainActivity extends AppCompatActivity
     private GoogleApiClient mGoogleApiClient;
     private GoogleMap mGoogleMap;
     private boolean mGoogleApiConnected;
+    private BathroomMarkerManager mManager;
+
     private Marker mCurrentMarker;
     private Toolbar mToolbar;
     private View mWalkButton;
@@ -57,16 +62,20 @@ public class MainActivity extends AppCompatActivity
     private TextView mRatingTextView;
     private View mAddButton;
     private Marker mAddMarker;
-    private BathroomMarkerManager mManager;
+    private ProgressBar mProgressbar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Telemetry.sendTestEvent();
+
         mToolbar = (Toolbar)findViewById(R.id.my_toolbar_bathroom);
         //setSupportActionBar(mToolbar);
         //getSupportActionBar().hide();
+
+        mProgressbar = (ProgressBar)findViewById(R.id.main_progressbar);
 
         mWalkingTimeTextView = (TextView)findViewById(R.id.time_textview);
 
@@ -82,6 +91,13 @@ public class MainActivity extends AppCompatActivity
         mRatingTextView.setOnClickListener(onClickListener);
 
         findViewById(R.id.rating_ratingbar).setOnClickListener(onClickListener);
+
+        findViewById(R.id.refresh_button).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                refreshMarkersAsync();
+            }
+        });
 
         mWalkButton = findViewById(R.id.walk_button);
         mWalkButton.setOnClickListener(new View.OnClickListener() {
@@ -187,7 +203,7 @@ public class MainActivity extends AppCompatActivity
             public boolean onMarkerClick(Marker marker) {
 
                 if (mCurrentMarker != null) {
-                    mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_18dp));
+                    mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(BathroomMarkerManager.POO_ICON));
                 }
                 mCurrentMarker = marker;
                 if ((mAddMarker != null) && (mCurrentMarker.getId().equals(mAddMarker.getId()))) {
@@ -197,7 +213,7 @@ public class MainActivity extends AppCompatActivity
                     mAddMarker = null;
                     mCurrentMarker = null;
                 } else {
-                    mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_24dp));
+                    mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(BathroomMarkerManager.POO_ICON_BIG));
                     BathroomMapsAPI.Bathroom bathroom = mManager.getBathroom(marker);
                     setToolbarBathroom(bathroom);
 
@@ -283,8 +299,7 @@ public class MainActivity extends AppCompatActivity
         */
 
         mManager = new BathroomMarkerManager(mGoogleMap);
-        AddMarkersTask task = new AddMarkersTask(mGoogleApiClient, map, mManager);
-        task.execute();
+        refreshMarkersAsync();
         ensureMapCentered(null /* use current location */, true /* resetZoom */);
     }
 
@@ -297,6 +312,11 @@ public class MainActivity extends AppCompatActivity
             mCurrentMarker = null;
             setToolbarBathroom(bathroom);
         }
+    }
+
+    private void refreshMarkersAsync() {
+        AddMarkersTask task = new AddMarkersTask(mGoogleApiClient, mGoogleMap, mManager);
+        task.execute();
     }
 
     private void setToolbarBathroom(BathroomMapsAPI.Bathroom bathroom) {
@@ -319,7 +339,7 @@ public class MainActivity extends AppCompatActivity
     private void animateToDefaultView() {
         animateToolbar(false);
         if (mCurrentMarker != null) {
-            mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_wc_black_18dp));
+            mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(BathroomMarkerManager.POO_ICON));
             mCurrentMarker = null;
         }
     }
@@ -425,11 +445,12 @@ public class MainActivity extends AppCompatActivity
     // Parameters
     // Progress
     // Result
-    private static class AddMarkersTask extends AsyncTask<Void, Void, List<BathroomMapsAPI.Bathroom>> {
+    private class AddMarkersTask extends AsyncTask<Void, Void, List<BathroomMapsAPI.Bathroom>> {
 
         private GoogleApiClient mGoogleApiClient;
         private GoogleMap mMap;
         private BathroomMarkerManager mManager;
+        private Exception mException;
 
         public AddMarkersTask(GoogleApiClient googleApiClient, GoogleMap map, BathroomMarkerManager manager) {
             mGoogleApiClient = googleApiClient;
@@ -438,23 +459,48 @@ public class MainActivity extends AppCompatActivity
         }
 
         @Override
+        protected void onPreExecute() {
+            mProgressbar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
         protected List<BathroomMapsAPI.Bathroom> doInBackground(Void... params) {
-            BathroomMapsAPI api = new BathroomMapsAPI();
             List<BathroomMapsAPI.Bathroom> bathrooms = null;
             try {
                 // TODO: Check if this will return null
                 Location hereLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-                bathrooms = api.getBathrooms(new LatLng(hereLoc.getLatitude(), hereLoc.getLongitude()));
+                bathrooms = BathroomMapsAPI.getInstance().getBathrooms(new LatLng(hereLoc.getLatitude(), hereLoc.getLongitude()));
             } catch (Exception e) {
-                System.err.println(e);
+                mException = e;
             }
             return bathrooms;
         }
 
         @Override
         protected void onPostExecute(List<BathroomMapsAPI.Bathroom> result) {
-            if (result != null) {
-                mManager.init(result);
+            mProgressbar.setVisibility(View.GONE);
+            String toastMessage = null;
+            if (mException == null) {
+                if (result != null) {
+                    mManager.init(result);
+                } else {
+                    Telemetry.sendNullBathroomListFromApiEvent();
+                    toastMessage = "Hmm, no bathrooms returned";
+                }
+            } else {
+                if (mException instanceof ConnectException) {
+                    toastMessage = "Server is down!";
+                    Telemetry.sendServerDownOnRefreshEvent();
+                } else if (mException instanceof BathroomMapsAPI.NoInternetException) {
+                    toastMessage = "Device isn't connected to the internet!";
+                } else {
+                    toastMessage = mException.toString();
+                }
+            }
+
+            if (toastMessage != null) {
+                Toast toast = Toast.makeText(MainActivity.this, toastMessage, Toast.LENGTH_LONG);
+                toast.show();
             }
         }
     }
@@ -502,11 +548,10 @@ public class MainActivity extends AppCompatActivity
 
         @Override
         protected Boolean doInBackground(Void... params) {
-            BathroomMapsAPI api = new BathroomMapsAPI();
             try {
-                return api.removeBathroom(mId);
+                return BathroomMapsAPI.getInstance().removeBathroom(mId);
             } catch (Exception e) {
-                System.err.println(e);
+                Telemetry.sendApiErrorEvent("RemoveBathroom", "removeBathroom returned false", 0);
             }
             return false;
         }

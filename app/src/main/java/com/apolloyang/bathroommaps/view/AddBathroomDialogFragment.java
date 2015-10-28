@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import com.apolloyang.bathroommaps.R;
 import com.apolloyang.bathroommaps.model.BathroomMapsAPI;
+import com.apolloyang.bathroommaps.model.Telemetry;
 import com.google.android.gms.maps.model.LatLng;
 
 /**
@@ -111,11 +112,11 @@ public class AddBathroomDialogFragment extends DialogFragment {
 
         @Override
         protected BathroomMapsAPI.Bathroom doInBackground(Void... params) {
-            BathroomMapsAPI api = new BathroomMapsAPI();
             try {
-                return api.addBathroom(mPosition, mName, mCategory);
+                return BathroomMapsAPI.getInstance().addBathroom(mPosition, mName, mCategory);
             } catch (Exception e) {
                 mException = e;
+                Telemetry.sendApiErrorEvent("AddBathroom", e.toString(), 0);
             }
             return null;
         }
@@ -148,11 +149,11 @@ public class AddBathroomDialogFragment extends DialogFragment {
 
         @Override
         protected BathroomMapsAPI.Bathroom doInBackground(Void... params) {
-            BathroomMapsAPI api = new BathroomMapsAPI();
             try {
-                return api.addReview(mId, mRating, mText);
+                return BathroomMapsAPI.getInstance().addReview(mId, mRating, mText);
             } catch (Exception e) {
                 mException = e;
+                Telemetry.sendApiErrorEvent("AddReview", e.toString(), 0);
             }
             return null;
         }
