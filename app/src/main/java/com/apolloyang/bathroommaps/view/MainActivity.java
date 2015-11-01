@@ -49,10 +49,12 @@ public class MainActivity extends AppCompatActivity
 
     private static final String DIALOG_ADDBATHROOM = "addbathroom";
     private static final String DIALOG_REVIEWS = "reviews";
+    private static final int REFRESH_DISTANCE = 5000; // metres
 
     private GoogleApiClient mGoogleApiClient;
     private GoogleMap mGoogleMap;
     private boolean mGoogleApiConnected;
+    private LatLng mLastRefreshLocation;
     private BathroomMarkerManager mManager;
 
     private Marker mCurrentMarker;
@@ -95,7 +97,7 @@ public class MainActivity extends AppCompatActivity
         findViewById(R.id.refresh_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                refreshMarkersAsync();
+                refreshMarkersAsync(false /* useFusedLocation */); // use the map's centre
             }
         });
 
@@ -284,22 +286,21 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        /*
         map.setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
             @Override
             public void onCameraChange(CameraPosition cameraPosition) {
-                if ((mCurrentMarker != null) &&
-                        ((cameraPosition.target.latitude != mCurrentMarker.getPosition().latitude) ||
-                         (cameraPosition.target.longitude != mCurrentMarker.getPosition().longitude))) {
-                    LatLng x = mCurrentMarker.getPosition();
-                    animateToolbar(false);
+                if (mLastRefreshLocation != null) {
+                    float[] results = new float[1];
+                    Location.distanceBetween(mLastRefreshLocation.latitude, mLastRefreshLocation.longitude, cameraPosition.target.latitude, cameraPosition.target.longitude, results);
+                    if (shouldRefreshMarkers(results[0])) {
+                        refreshMarkersAsync(false /* useFusedLocation */);
+                    }
                 }
             }
         });
-        */
 
         mManager = new BathroomMarkerManager(mGoogleMap);
-        refreshMarkersAsync();
+        refreshMarkersAsync(true /* useFusedLocation */); // the map isn't centred yet, so use the device's location on startup
         ensureMapCentered(null /* use current location */, true /* resetZoom */);
     }
 
@@ -314,8 +315,20 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void refreshMarkersAsync() {
-        AddMarkersTask task = new AddMarkersTask(mGoogleApiClient, mGoogleMap, mManager);
+    private boolean shouldRefreshMarkers(float distanceFromLastRefresh) {
+        // if you've gone 80% of the way or at least 10km, then refresh
+        return (((distanceFromLastRefresh / REFRESH_DISTANCE) > 0.8) || (distanceFromLastRefresh > 10000));
+    }
+
+    private void refreshMarkersAsync(boolean useFusedLocation) {
+
+        if (useFusedLocation) {
+            Location hereLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+            mLastRefreshLocation = new LatLng(hereLoc.getLatitude(), hereLoc.getLongitude());
+        } else {
+            mLastRefreshLocation = mGoogleMap.getCameraPosition().target;
+        }
+        AddMarkersTask task = new AddMarkersTask(mGoogleApiClient, mGoogleMap, mLastRefreshLocation, mManager);
         task.execute();
     }
 
@@ -404,7 +417,6 @@ public class MainActivity extends AppCompatActivity
             }
 
             if (latLng != null) {
-
                 CameraPosition.Builder builder = CameraPosition.builder()
                         .target(latLng)
                         .zoom(resetZoom ? 16 : mGoogleMap.getCameraPosition().zoom);
@@ -449,12 +461,14 @@ public class MainActivity extends AppCompatActivity
 
         private GoogleApiClient mGoogleApiClient;
         private GoogleMap mMap;
+        private LatLng mCentre;
         private BathroomMarkerManager mManager;
         private Exception mException;
 
-        public AddMarkersTask(GoogleApiClient googleApiClient, GoogleMap map, BathroomMarkerManager manager) {
+        public AddMarkersTask(GoogleApiClient googleApiClient, GoogleMap map, LatLng centre, BathroomMarkerManager manager) {
             mGoogleApiClient = googleApiClient;
             mMap = map;
+            mCentre = centre;
             mManager = manager;
         }
 
@@ -468,8 +482,7 @@ public class MainActivity extends AppCompatActivity
             List<BathroomMapsAPI.Bathroom> bathrooms = null;
             try {
                 // TODO: Check if this will return null
-                Location hereLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-                bathrooms = BathroomMapsAPI.getInstance().getBathrooms(new LatLng(hereLoc.getLatitude(), hereLoc.getLongitude()));
+                bathrooms = BathroomMapsAPI.getInstance().getBathrooms(mCentre, REFRESH_DISTANCE);
             } catch (Exception e) {
                 mException = e;
             }

@@ -144,13 +144,14 @@ public class BathroomMapsAPI {
         return sInstance;
     }
 
-    public List<Bathroom> getBathrooms(LatLng here) throws Exception {
+    public List<Bathroom> getBathrooms(LatLng here, int distance) throws Exception {
         checkIfConnectedToInternet();
 
-        String urlString = String.format("%s/bathrooms?lat=%f&lon=%f",
+        String urlString = String.format("%s/bathrooms?lat=%f&lon=%f&distance=%d",
                 baseUrlString,
                 here.latitude,
-                here.longitude);
+                here.longitude,
+                distance);
         URL url = new URL(urlString);
         HttpURLConnection connection = (HttpURLConnection)url.openConnection();
         JSONObject object = JSONHelper.getJSONObjectFromInputStream(connection.getInputStream());
