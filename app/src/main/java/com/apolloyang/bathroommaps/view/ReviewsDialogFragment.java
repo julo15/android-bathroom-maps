@@ -32,6 +32,13 @@ public class ReviewsDialogFragment extends DialogFragment {
     public ReviewsDialogFragment(BathroomMapsAPI.Bathroom bathroom, AddBathroomDialogFragment.Listener listener) {
         mBathroom = bathroom;
         mListener = listener;
+
+        // HACK: Basically using setRetainInstance to prevent the crash caused by this fragment not
+        // having a default constructor. Because we don't also have the workaround to clear out the
+        // dismiss message, the end result is that the dialog disappears on rotation. This is fine,
+        // since we don't currently have the right MainActivity implementation to easily support
+        // re-passing in the Bathrom and Listener.
+        setRetainInstance(true);
     }
 
     @Override

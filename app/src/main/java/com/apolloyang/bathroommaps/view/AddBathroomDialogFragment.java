@@ -42,6 +42,7 @@ public class AddBathroomDialogFragment extends DialogFragment {
         mMode = mode;
         mId = id;
         mListener = listener;
+        setRetainInstance(true);
     }
 
     public void setMode() {
@@ -92,6 +93,23 @@ public class AddBathroomDialogFragment extends DialogFragment {
                     }
                 })
                 .create();
+    }
+
+    @Override
+    public void onDestroyView()
+    {
+        // HACK: The following is a workaround to have setRetainInstance allow the dialog to be
+        // successfully created on rotation. I'm disabling it because the mainactivity dies on rotation,
+        // and I don't want the dead mainactivity instance to be called back after a result.
+        /*
+        Dialog dialog = getDialog();
+
+        // Work around bug: http://code.google.com/p/android/issues/detail?id=17423
+        if ((dialog != null) && getRetainInstance())
+            dialog.setDismissMessage(null);
+        */
+
+        super.onDestroyView();
     }
 
     // Parameters

@@ -42,6 +42,7 @@ public class BathroomMarkerManager {
         if (mStringBathroomHashMap.containsKey(bathroom.getId())) {
             remove(bathroom.getId());
         }
+        // TODO: Pending bathroom should perhaps look different
         add(bathroom);
     }
 

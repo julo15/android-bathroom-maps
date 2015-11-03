@@ -167,7 +167,7 @@ public class BathroomMapsAPI {
     public Bathroom addBathroom(LatLng position, String name, String category) throws Exception {
         checkIfConnectedToInternet();
 
-        String urlString = String.format("%s/addbathroom?admin&lat=%f&lon=%f&name=%s&cat=%s",
+        String urlString = String.format("%s/addbathroom?lat=%f&lon=%f&name=%s&cat=%s",
                 baseUrlString,
                 position.latitude,
                 position.longitude,

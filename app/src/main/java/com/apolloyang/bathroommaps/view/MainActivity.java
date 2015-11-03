@@ -40,7 +40,6 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.net.ConnectException;
-import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
@@ -70,8 +69,6 @@ public class MainActivity extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        Telemetry.sendTestEvent();
 
         mToolbar = (Toolbar)findViewById(R.id.my_toolbar_bathroom);
         //setSupportActionBar(mToolbar);
@@ -217,6 +214,11 @@ public class MainActivity extends AppCompatActivity
                 } else {
                     mCurrentMarker.setIcon(BitmapDescriptorFactory.fromResource(BathroomMarkerManager.POO_ICON_BIG));
                     BathroomMapsAPI.Bathroom bathroom = mManager.getBathroom(marker);
+                    if (bathroom == null) {
+                        // TODO: Remove
+                        Toast toast = Toast.makeText(MainActivity.this, "Whoa null bathroom", Toast.LENGTH_LONG);
+                        toast.show();
+                    }
                     setToolbarBathroom(bathroom);
 
                     animateToolbar(true);
@@ -321,6 +323,8 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void refreshMarkersAsync(boolean useFusedLocation) {
+        mCurrentMarker = null;
+        animateToolbar(false);
 
         if (useFusedLocation) {
             Location hereLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
@@ -429,7 +433,6 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onConnected(Bundle var1)
     {
-        onDoneConnecting("connected");
         mGoogleApiConnected = true;
 
         SupportMapFragment mapFragment = (SupportMapFragment)getSupportFragmentManager().findFragmentById(R.id.fragment);
@@ -439,17 +442,16 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onConnectionSuspended(int var1)
     {
-        onDoneConnecting("suspended");
     }
 
     // GoogleApiClient.OnConnectionFailedListener
     @Override
     public void onConnectionFailed(ConnectionResult var1)
     {
-        onDoneConnecting("failed");
+        showToast("Problem connecting to Google API client..");
     }
 
-    private void onDoneConnecting(String message) {
+    private void showToast(String message) {
         Toast toast = Toast.makeText(this, message, Toast.LENGTH_SHORT);
         toast.show();
     }
